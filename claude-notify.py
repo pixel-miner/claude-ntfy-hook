@@ -727,6 +727,15 @@ def _format_ask_question(ask_input):
     return title, body
 
 
+def _is_subagent_notification(data):
+    """Return True when hook provenance identifies agent-to-agent traffic."""
+    if any(data.get(key) for key in ("agent_id", "agent_type", "subagent_id")):
+        return True
+
+    transcript_path = str(data.get("transcript_path", "")).replace("\\", "/")
+    return "subagents" in (part.lower() for part in transcript_path.split("/") if part)
+
+
 def _extract_context_summary(transcript_path, notification_type):
     """Extract context from the transcript for a richer notification.
 
@@ -1168,6 +1177,10 @@ def _auto_start_server(server_url: str):
 def run_as_hook(hook_type: str, server_url: str):
     """Called by Claude Code as a hook. Reads stdin, calls server, returns response."""
     input_data = json.loads(sys.stdin.read()) if not sys.stdin.isatty() else {}
+
+    if hook_type == "notification" and _is_subagent_notification(input_data):
+        print("{}")
+        return
 
     # Auto-start the server if it's not running
     _auto_start_server(server_url)
